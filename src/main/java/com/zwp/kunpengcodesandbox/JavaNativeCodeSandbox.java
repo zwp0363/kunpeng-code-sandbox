@@ -3,10 +3,14 @@ package com.zwp.kunpengcodesandbox;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.dfa.FoundWord;
+import cn.hutool.dfa.WordTree;
 import com.zwp.kunpengcodesandbox.model.ExecuteCodeRequest;
 import com.zwp.kunpengcodesandbox.model.ExecuteCodeResponse;
 import com.zwp.kunpengcodesandbox.model.ExecuteMessage;
 import com.zwp.kunpengcodesandbox.model.JudgeInfo;
+import com.zwp.kunpengcodesandbox.security.DefaultSecurityManager;
+import com.zwp.kunpengcodesandbox.security.DenySecurityManager;
 import com.zwp.kunpengcodesandbox.utils.ProcessUtils;
 
 import java.io.File;
@@ -22,12 +26,29 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
 
+    private static final long Time_OUT = 5000L;
+
+    private  static final List<String> blackList = Arrays.asList("Files", "exec");
+
+    private static final WordTree WORD_TREE;
+
+    private static final String SECURITY_MANAGER_PATH = "D:\\projects\\kunpeng-code-sandbox\\src\\main\\java\\com\\zwp\\kunpengcodesandbox\\security";
+
+    private static final String SECURITY_MANAGER_CLASS_NAME = "MySecurityManager";
+
+    static {
+        // 初始化字典树
+        WORD_TREE = new WordTree();
+        WORD_TREE.addWords(blackList);
+    }
+
     public static void main(String[] args) {
         JavaNativeCodeSandbox javaNativeCodeSandbox = new JavaNativeCodeSandbox();
         ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
         executeCodeRequest.setInputList(Arrays.asList("1 2", "1 3"));
 //        String code = ResourceUtil.readStr("testCode/simpleComputeArgs/Main.java", StandardCharsets.UTF_8);
-        String code = ResourceUtil.readStr("testCode/simpleCompute/Main.java", StandardCharsets.UTF_8);
+//        String code = ResourceUtil.readStr("testCode/simpleCompute/Main.java", StandardCharsets.UTF_8);
+        String code = ResourceUtil.readStr("testCode/unsafeCode/ReadFileError.java", StandardCharsets.UTF_8);
         executeCodeRequest.setCode(code);
         executeCodeRequest.setLanguage("java");
         ExecuteCodeResponse executeCodeResponse = javaNativeCodeSandbox.executeCode(executeCodeRequest);
@@ -36,9 +57,18 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     @Override
     public ExecuteCodeResponse executeCode(ExecuteCodeRequest executeCodeRequest) {
+        System.setSecurityManager(new DenySecurityManager());
+
         List<String> inputList = executeCodeRequest.getInputList();
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
+
+//        // 校验代码中是否包含黑名单中的命令
+//        FoundWord foundWord = WORD_TREE.matchWord(code);
+//        if (foundWord != null) {
+//            System.out.println(foundWord.getFoundWord());
+//            return null;
+//        }
 
         // 1.把用户代码保存为文件
         String userDir = System.getProperty("user.dir");
@@ -66,9 +96,20 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         // 3.执行代码，得到输出结果
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList) {
-            String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
+//            String runCmd = String.format("java -Xmx256m -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
+            String runCmd = String.format("java -Xmx256m -Dfile.encoding=UTF-8 -cp %s;%s -Djava.security.manager=%s Main %s", userCodeParentPath, SECURITY_MANAGER_PATH, SECURITY_MANAGER_CLASS_NAME, inputArgs);
             try {
                 Process runProcess = Runtime.getRuntime().exec(runCmd);
+                // 超时控制
+                new Thread(() -> {
+                    try{
+                        Thread.sleep(Time_OUT); // 线程等待结束，代码进程还没执行完成，结束进程
+                        System.out.println("超时啦");
+                        runProcess.destroy();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
 //                ExecuteMessage executeMessage = ProcessUtils.runProcessAndGetMessage(runProcess, "运行");
                 ExecuteMessage executeMessage = ProcessUtils.runInteractProcessAndGetMessage(runProcess, inputArgs);
                 System.out.println(executeMessage);
