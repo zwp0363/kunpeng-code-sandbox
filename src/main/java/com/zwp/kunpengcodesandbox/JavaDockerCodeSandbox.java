@@ -16,6 +16,7 @@ import com.zwp.kunpengcodesandbox.model.ExecuteCodeResponse;
 import com.zwp.kunpengcodesandbox.model.ExecuteMessage;
 import com.zwp.kunpengcodesandbox.model.JudgeInfo;
 import com.zwp.kunpengcodesandbox.utils.ProcessUtils;
+import org.springframework.stereotype.Component;
 
 import java.io.Closeable;
 import java.io.File;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+@Component
 public class JavaDockerCodeSandbox extends JavaCodeSandboxTemplate {
 
     private static final long Time_OUT = 5000L;
