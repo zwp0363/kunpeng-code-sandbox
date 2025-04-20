@@ -58,8 +58,8 @@ public class ProcessUtils {
                 List<String> errorOutputStrList = new ArrayList<>();
                 // 逐行读取
                 String errorCompileOutputLine;
-                while ((errorCompileOutputLine = bufferedReader.readLine()) != null) {
-                    outputStrList.add(errorCompileOutputLine);
+                while ((errorCompileOutputLine = errorBufferedReader.readLine()) != null) {
+                    errorOutputStrList.add(errorCompileOutputLine);
                 }
                 executeMessage.setErrorMessage(StringUtils.join(errorOutputStrList, "\n"));
             }
